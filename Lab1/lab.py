@@ -47,6 +47,7 @@ def invert_matrix(A):
     I = np.eye(n)
     AI = np.hstack([A, I])
     for i in range(n):
+        # делаем главный элемент = 1
         AI[i] = AI[i] / AI[i, i]
         for j in range(n):
             if i != j:
@@ -64,7 +65,11 @@ def mse(y_true, y_pred):
 # 2. Методы оптимизации
 # ========================
 
-# ======== МНК ========
+
+# =======================
+# 2.1
+# ========================
+# 2.1 Точное решение МНК
 def MNK(X, y):
     XT = transpose(X)
     XTX = matmul(XT, X)
@@ -73,7 +78,9 @@ def MNK(X, y):
     theta = matmul(XTX_inv, XTy)
     return theta.flatten()
 
-# ======== GD ========
+# ========================
+# 2.2
+# ========================
 def gradient_descent_full(X_train, y_train, X_test, y_test, lr=0.01, epochs=200):
     m, n = X_train.shape
     theta = np.zeros(n)
@@ -91,7 +98,13 @@ def gradient_descent_full(X_train, y_train, X_test, y_test, lr=0.01, epochs=200)
         
     return theta, history_train, history_test
 
-# ======== SGD ========
+theta_gd, hist_train_gd, hist_test_gd = gradient_descent_full(
+    X_train_bias, y_train, X_test_bias, y_test, lr=0.01, epochs=200
+)
+
+# ========================
+# 2.3
+# ========================
 def sgd_full(X_train, y_train, X_test, y_test, lr=0.01, epochs=20, batch_size=32):
     m, n = X_train.shape
     theta = np.zeros(n)
@@ -113,12 +126,18 @@ def sgd_full(X_train, y_train, X_test, y_test, lr=0.01, epochs=20, batch_size=32
         
     return theta, history_train, history_test
 
-# ======== Adamax ========
+theta_sgd, hist_train_sgd, hist_test_sgd = sgd_full(
+    X_train_bias, y_train, X_test_bias, y_test, lr=0.01, epochs=20
+)
+
+#===================
+# ADAMAX
+#===================
 def adamax(X_train, y_train, X_test, y_test, lr=0.002, epochs=200, beta1=0.9, beta2=0.999, eps=1e-8):
     m, n = X_train.shape
     theta = np.zeros(n)
-    m_t = np.zeros(n)
-    u_t = np.zeros(n)
+    m_t = np.zeros(n)  # первый момент
+    u_t = np.zeros(n)  # бесконечная норма второго момента
     history_train = []
     history_test = []
 
@@ -138,20 +157,96 @@ def adamax(X_train, y_train, X_test, y_test, lr=0.002, epochs=200, beta1=0.9, be
 
     return theta, history_train, history_test
 
+fig, axs = plt.subplots(1, 2, figsize=(16,6))
+#=========================================
+#=============== Визуализация ============
+#=========================================
+
+theta_exact = MNK(X_train_bias, y_train)
+
+theta_adamax, hist_train_adamax, hist_test_adamax = adamax(
+    X_train_bias, y_train, X_test_bias, y_test, lr=0.01, epochs=200
+)
+# ======== Обучающая выборка ========
+axs[0].plot(hist_train_gd, label="GD", linewidth=2)
+axs[0].plot([i * (len(hist_train_gd)//len(hist_train_sgd)) for i in range(len(hist_train_sgd))],
+            hist_train_sgd, label="SGD", linewidth=2)
+axs[0].plot(hist_train_adamax, label="Adamax", linewidth=2)
+axs[0].axhline(y=mse(y_train, X_train_bias @ theta_exact), color='r', linestyle='--', label="Точное решение (МНК)")
+axs[0].set_xlabel("Эпоха", fontsize=12)
+axs[0].set_ylabel("MSE", fontsize=12)
+axs[0].set_title("MSE на обучающей выборке", fontsize=14)
+axs[0].legend()
+axs[0].grid(True)
+
+# ======== Тестовая выборка ========
+axs[1].plot(hist_test_gd, label="GD", linewidth=2)
+axs[1].plot([i * (len(hist_test_gd)//len(hist_test_sgd)) for i in range(len(hist_test_sgd))],
+            hist_test_sgd, label="SGD", linewidth=2)
+axs[1].plot(hist_test_adamax, label="Adamax", linewidth=2)
+axs[1].axhline(y=mse(y_test, X_test_bias @ theta_exact), color='r', linestyle='--', label="Точное решение (МНК)")
+axs[1].set_xlabel("Эпоха", fontsize=12)
+axs[1].set_ylabel("MSE", fontsize=12)
+axs[1].set_title("MSE на тестовой выборке", fontsize=14)
+axs[1].legend()
+axs[1].grid(True)
+
+plt.show()
+
+
 # ========================
-# Запуск методов и измерение времени
+# Визуализация для первых 100 точек
 # ========================
 
-# МНК
+n_points = 100
+
+# Берем первые 100 примеров
+y_true_subset = y_train[:n_points]
+X_subset_bias = X_train_bias[:n_points]
+
+# Предсказания с разными коэффициентами
+y_pred_exact = X_subset_bias @ theta_exact
+y_pred_gd = X_subset_bias @ theta_gd
+y_pred_sgd = X_subset_bias @ theta_sgd
+y_pred_adamax = X_subset_bias @ theta_adamax
+
+plt.figure(figsize=(10,6))
+
+# Истинные значения
+plt.plot(y_true_subset, label="Истинная целевая функция", linewidth=2)
+
+# Предсказания МНК
+plt.plot(y_pred_exact, '--', label="Предсказания МНК", linewidth=2)
+
+# Предсказания GD
+plt.plot(y_pred_gd, ':', label="Предсказания GD", linewidth=2)
+
+# Предсказания SGD
+plt.plot(y_pred_sgd, '-.', label="Предсказания SGD", linewidth=2)
+
+plt.plot(y_pred_adamax, '-', label="Предсказания Adamax", linewidth=2)
+
+plt.xlabel("Индекс примера", fontsize=12)
+plt.ylabel("y", fontsize=12)
+plt.title("Сравнение предсказаний с истинной функцией (100 точек)", fontsize=14)
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# ========================
+# MНК
+# ========================
 start = time.time()
 theta_exact = MNK(X_train_bias, y_train)
 end = time.time()
 mse_train_exact = mse(y_train, X_train_bias @ theta_exact)
 mse_test_exact = mse(y_test, X_test_bias @ theta_exact)
 time_exact = end - start
-iters_exact = 1
+iters_exact = 1  # одно вычисление МНК
 
+# ========================
 # GD
+# ========================
 start = time.time()
 theta_gd, hist_train_gd, hist_test_gd = gradient_descent_full(
     X_train_bias, y_train, X_test_bias, y_test, lr=0.01, epochs=200
@@ -160,9 +255,11 @@ end = time.time()
 mse_train_gd = hist_train_gd[-1]
 mse_test_gd = hist_test_gd[-1]
 time_gd = end - start
-iters_gd = 200
+iters_gd = 200  # количество эпох
 
+# ========================
 # SGD
+# ========================
 start = time.time()
 theta_sgd, hist_train_sgd, hist_test_sgd = sgd_full(
     X_train_bias, y_train, X_test_bias, y_test, lr=0.01, epochs=200, batch_size=32
@@ -171,12 +268,13 @@ end = time.time()
 mse_train_sgd = hist_train_sgd[-1]
 mse_test_sgd = hist_test_sgd[-1]
 time_sgd = end - start
-iters_sgd = 200
+iters_sgd = 200  # количество эпох
+
 
 # Adamax
 start = time.time()
 theta_adamax, hist_train_adamax, hist_test_adamax = adamax(
-    X_train_bias, y_train, X_test_bias, y_test, lr=0.01, epochs=200
+    X_train_bias, y_train, X_test_bias, y_test, lr=0.002, epochs=200
 )
 end = time.time()
 mse_train_adamax = hist_train_adamax[-1]
@@ -185,9 +283,8 @@ time_adamax = end - start
 iters_adamax = 200
 
 # ========================
-# Финальная таблица сравнения
+# Создаем DataFrame
 # ========================
-
 df = pd.DataFrame({
     "Метод": ["МНК", "GD", "SGD", "Adamax"],
     "MSE train": [mse_train_exact, mse_train_gd, mse_train_sgd, mse_train_adamax],
@@ -197,60 +294,3 @@ df = pd.DataFrame({
 })
 
 print(df)
-
-# ========================
-# Визуализация MSE на обучении
-# ========================
-
-plt.figure(figsize=(10,6))
-plt.plot(hist_train_gd, label="GD")
-plt.plot([i * (len(hist_train_gd)//len(hist_train_sgd)) for i in range(len(hist_train_sgd))], hist_train_sgd, label="SGD")
-plt.plot(hist_train_adamax, label="Adamax", linewidth=2)
-plt.axhline(y=mse_train_exact, color='r', linestyle='--', label="Точное решение (МНК)")
-plt.xlabel("Эпоха")
-plt.ylabel("MSE на обучающей выборке")
-plt.title("Сравнение методов оптимизации (train)")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-# ========================
-# Визуализация MSE на тестовой выборке
-# ========================
-plt.figure(figsize=(10,6))
-plt.plot(hist_test_gd, label="GD")
-plt.plot([i * (len(hist_test_gd)//len(hist_test_sgd)) for i in range(len(hist_test_sgd))], hist_test_sgd, label="SGD")
-plt.plot(hist_test_adamax, label="Adamax", linewidth=2)
-plt.axhline(y=mse_test_exact, color='r', linestyle='--', label="Точное решение (МНК)")
-plt.xlabel("Эпоха")
-plt.ylabel("MSE на тестовой выборке")
-plt.title("Сравнение методов оптимизации (test)")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-# ========================
-# Визуализация предсказаний для первых 100 точек
-# ========================
-n_points = 100
-y_true_subset = y_train[:n_points]
-X_subset_bias = X_train_bias[:n_points]
-
-y_pred_exact = X_subset_bias @ theta_exact
-y_pred_gd = X_subset_bias @ theta_gd
-y_pred_sgd = X_subset_bias @ theta_sgd
-y_pred_adamax = X_subset_bias @ theta_adamax
-
-plt.figure(figsize=(10,6))
-plt.plot(y_true_subset, label="Истинная целевая функция", linewidth=2)
-plt.plot(y_pred_exact, '--', label="Предсказания МНК", linewidth=2)
-plt.plot(y_pred_gd, ':', label="Предсказания GD", linewidth=2)
-plt.plot(y_pred_sgd, '-.', label="Предсказания SGD", linewidth=2)
-plt.plot(y_pred_adamax, '-', label="Предсказания Adamax", linewidth=2)
-plt.xlabel("Индекс примера")
-plt.ylabel("y")
-plt.title("Сравнение предсказаний с истинной функцией (100 точек)")
-plt.legend()
-plt.grid(True)
-plt.show()
-
