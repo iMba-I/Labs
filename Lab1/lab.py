@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 # ========================
 
 def target_function(X):
-    return (1.0 
-            + 0.5 * X[:,0] 
-            + 2.1 * X[:,1] 
-            + 1.8 * X[:,2] 
-            + 0.7 * X[:,3] 
+    return (1.0
+            + 0.5 * X[:,0]
+            + 2.1 * X[:,1]
+            + 1.8 * X[:,2]
+            + 0.7 * X[:,3]
             + 3.3 * np.tanh(X[:,4]))
 
 np.random.seed(1)
@@ -40,7 +40,7 @@ def matmul(A, B):
 def transpose(A):
     return np.array([[A[j][i] for j in range(len(A))] for i in range(len(A[0]))])
 
-# Обращение матрицы методом Гаусса-Жордана
+# Обращение матрицы методом Гаусса
 def invert_matrix(A):
     n = len(A)
     A = np.array(A, dtype=float)
@@ -81,21 +81,22 @@ def MNK(X, y):
 # ========================
 # 2.2
 # ========================
+#(y_ - y)
 def gradient_descent_full(X_train, y_train, X_test, y_test, lr=0.01, epochs=200):
     m, n = X_train.shape
     theta = np.zeros(n)
     history_train = []
     history_test = []
-    
+
     for _ in range(epochs):
         preds_train = X_train @ theta
         error = preds_train - y_train
         grad = (1/m) * (X_train.T @ error)
         theta -= lr * grad
-        
+
         history_train.append(mse(y_train, preds_train))
         history_test.append(mse(y_test, X_test @ theta))
-        
+
     return theta, history_train, history_test
 
 theta_gd, hist_train_gd, hist_test_gd = gradient_descent_full(
@@ -110,24 +111,23 @@ def sgd_full(X_train, y_train, X_test, y_test, lr=0.01, epochs=20, batch_size=32
     theta = np.zeros(n)
     history_train = []
     history_test = []
-    
+
     for _ in range(epochs):
         indices = np.random.permutation(m)
-        for start in range(0, m, batch_size):
-            end = start + batch_size
-            batch_indices = indices[start:end]
-            xi_batch = X_train[batch_indices]
-            yi_batch = y_train[batch_indices]
-            grad = xi_batch.T @ (xi_batch @ theta - yi_batch) / len(batch_indices)
-            theta -= lr * grad
-            
+        end = batch_size
+        batch_indices = indices[0:end]
+        xi_batch = X_train[batch_indices]
+        yi_batch = y_train[batch_indices]
+        grad = xi_batch.T @ (xi_batch @ theta - yi_batch) / len(batch_indices)
+        theta -= lr * grad
+
         history_train.append(mse(y_train, X_train @ theta))
         history_test.append(mse(y_test, X_test @ theta))
-        
+
     return theta, history_train, history_test
 
 theta_sgd, hist_train_sgd, hist_test_sgd = sgd_full(
-    X_train_bias, y_train, X_test_bias, y_test, lr=0.01, epochs=20
+    X_train_bias, y_train, X_test_bias, y_test, lr=0.01, epochs=200
 )
 
 #===================
@@ -169,8 +169,7 @@ theta_adamax, hist_train_adamax, hist_test_adamax = adamax(
 )
 # ======== Обучающая выборка ========
 axs[0].plot(hist_train_gd, label="GD", linewidth=2)
-axs[0].plot([i * (len(hist_train_gd)//len(hist_train_sgd)) for i in range(len(hist_train_sgd))],
-            hist_train_sgd, label="SGD", linewidth=2)
+axs[0].plot(hist_train_sgd, label="SGD", linewidth=2)
 axs[0].plot(hist_train_adamax, label="Adamax", linewidth=2)
 axs[0].axhline(y=mse(y_train, X_train_bias @ theta_exact), color='r', linestyle='--', label="Точное решение (МНК)")
 axs[0].set_xlabel("Эпоха", fontsize=12)
@@ -181,8 +180,7 @@ axs[0].grid(True)
 
 # ======== Тестовая выборка ========
 axs[1].plot(hist_test_gd, label="GD", linewidth=2)
-axs[1].plot([i * (len(hist_test_gd)//len(hist_test_sgd)) for i in range(len(hist_test_sgd))],
-            hist_test_sgd, label="SGD", linewidth=2)
+axs[1].plot(hist_test_sgd, label="SGD", linewidth=2)
 axs[1].plot(hist_test_adamax, label="Adamax", linewidth=2)
 axs[1].axhline(y=mse(y_test, X_test_bias @ theta_exact), color='r', linestyle='--', label="Точное решение (МНК)")
 axs[1].set_xlabel("Эпоха", fontsize=12)
@@ -274,7 +272,7 @@ iters_sgd = 200  # количество эпох
 # Adamax
 start = time.time()
 theta_adamax, hist_train_adamax, hist_test_adamax = adamax(
-    X_train_bias, y_train, X_test_bias, y_test, lr=0.002, epochs=200
+    X_train_bias, y_train, X_test_bias, y_test, lr=0.01, epochs=200
 )
 end = time.time()
 mse_train_adamax = hist_train_adamax[-1]
